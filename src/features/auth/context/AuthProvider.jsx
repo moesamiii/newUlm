@@ -15,7 +15,7 @@ export const AuthProvider = ({ children, config }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(getToken());
   const [refreshToken, setRefreshTokenState] = useState(getRefreshToken());
-  const [tokenReady, setTokenReady] = useState(!!getToken()); // ✅ New flag
+  const [tokenReady, setTokenReady] = useState(!!getToken()); // ✅ true if token exists
   const [globalError, setGlobalError] = useState(null);
 
   const lastTokenRef = useRef(token);
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children, config }) => {
 
     setToken(data.token);
     setRefreshTokenState(data.refreshToken);
-    setTokenReady(true); // ✅ Ready after login
+    setTokenReady(true); // ✅
 
     lastTokenRef.current = data.token;
     lastRefreshTokenRef.current = data.refreshToken;
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children, config }) => {
     clearRefreshToken();
     setToken(null);
     setRefreshTokenState(null);
-    setTokenReady(false); // ✅ Reset on logout
+    setTokenReady(false); // ✅
 
     lastTokenRef.current = null;
     lastRefreshTokenRef.current = null;
@@ -63,107 +63,92 @@ export const AuthProvider = ({ children, config }) => {
     setGlobalError("❌ جلسة العمل انتهت. الرجاء تسجيل الدخول من جديد.");
   };
 
-  // Refresh token on first load
+  // 🔁 Refresh token on initial load
   useEffect(() => {
     const tryRefreshToken = async () => {
       if (!isInitialRefreshDoneRef.current && !getToken() && refreshToken) {
         try {
           isRefreshingRef.current = true;
-
           const data = await refreshTokenApi(refreshToken, config.apiUrl);
 
-          if (data.accessToken && data.accessToken !== lastTokenRef.current) {
+          if (data.accessToken) {
             saveToken(data.accessToken);
             setToken(data.accessToken);
             lastTokenRef.current = data.accessToken;
+            setTokenReady(true); // ✅
           }
 
-          if (
-            data.refreshToken &&
-            data.refreshToken !== lastRefreshTokenRef.current
-          ) {
+          if (data.refreshToken) {
             saveRefreshToken(data.refreshToken);
             setRefreshTokenState(data.refreshToken);
             lastRefreshTokenRef.current = data.refreshToken;
           }
 
-          setTokenReady(true); // ✅ Ready after refresh
           isInitialRefreshDoneRef.current = true;
-          isRefreshingRef.current = false;
-          console.log("Token refreshed!");
         } catch (err) {
-          console.error("Failed to refresh token:", err);
+          console.error("Initial token refresh failed:", err);
           logout();
+        } finally {
+          isRefreshingRef.current = false;
         }
+      } else {
+        setTokenReady(true); // ✅ Token already present
       }
     };
 
     tryRefreshToken();
   }, [refreshToken, config.apiUrl]);
 
-  // Auto-refresh every 1 min
+  // ♻️ Auto-refresh every 1 min
   useEffect(() => {
     let intervalId;
 
     if (token && refreshToken) {
-      console.log("Starting auto-refresh interval...");
-
       intervalId = setInterval(async () => {
-        if (isRefreshingRef.current) {
-          console.log("Skip refresh: already in progress.");
-          return;
-        }
-
+        if (isRefreshingRef.current) return;
         try {
           isRefreshingRef.current = true;
 
           const data = await refreshTokenApi(refreshToken, config.apiUrl);
 
-          if (data.accessToken && data.accessToken !== lastTokenRef.current) {
+          if (data.accessToken) {
             saveToken(data.accessToken);
             setToken(data.accessToken);
             lastTokenRef.current = data.accessToken;
           }
 
-          if (
-            data.refreshToken &&
-            data.refreshToken !== lastRefreshTokenRef.current
-          ) {
+          if (data.refreshToken) {
             saveRefreshToken(data.refreshToken);
             setRefreshTokenState(data.refreshToken);
             lastRefreshTokenRef.current = data.refreshToken;
           }
 
-          setTokenReady(true); // ✅ Mark ready after refresh
-          console.log("Token auto-refreshed!");
+          setTokenReady(true); // ✅
 
           if (data.refreshToken === "") {
-            console.warn("Refresh token is empty → logging out.");
+            console.warn("Refresh token empty → logout");
             logout();
           }
-
-          isRefreshingRef.current = false;
         } catch (err) {
-          console.error("Auto refresh failed:", err);
+          console.error("Auto token refresh failed:", err);
           logout();
+        } finally {
+          isRefreshingRef.current = false;
         }
-      }, 1 * 60 * 1000);
+      }, 60 * 1000); // 1 minute
     }
 
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        console.log("Cleared auto-refresh interval.");
-      }
+      if (intervalId) clearInterval(intervalId);
     };
-  }, [refreshToken, config.apiUrl]);
+  }, [token, refreshToken, config.apiUrl]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
-        tokenReady, // ✅ include in context
+        tokenReady, // ✅ shared to consumer
         refreshToken,
         login,
         logout,
