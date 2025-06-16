@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { getToken } from "../../features/auth/utils/tokenUtils"; // adjust path if needed
+import { useAuthContext } from "../../features/auth/context/AuthProvider";
 
 const NewAddressForm = () => {
+  const { token, tokenReady } = useAuthContext(); // ✅ Now includes tokenReady
+
   const [formData, setFormData] = useState({
     givenName: "",
     surName: "",
@@ -21,9 +23,29 @@ const NewAddressForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatusMessage("جارٍ إرسال البيانات...");
 
-    const token = getToken(); // 🔐 Get auth token
+    if (!tokenReady || !token) {
+      setStatusMessage("⏳ يرجى الانتظار... يتم تحميل التوكن");
+      return;
+    }
+
+    const { givenName, surName, country, city, street, state, postalCode } =
+      formData;
+
+    if (
+      !givenName.trim() ||
+      !surName.trim() ||
+      !country.trim() ||
+      city.trim().length < 3 ||
+      state.trim().length < 3 ||
+      !street.trim() ||
+      !postalCode.trim()
+    ) {
+      setStatusMessage("❌ الرجاء تعبئة جميع الحقول المطلوبة بشكل صحيح");
+      return;
+    }
+
+    setStatusMessage("جارٍ إرسال البيانات...");
 
     try {
       const response = await fetch(
@@ -48,7 +70,7 @@ const NewAddressForm = () => {
       }
     } catch (error) {
       console.error("Error:", error);
-      setStatusMessage("❌ فشل الاتصال بالخادم");
+      setStatusMessage("❌ حدث خطأ أثناء الاتصال بالخادم");
     }
   };
 
@@ -65,123 +87,61 @@ const NewAddressForm = () => {
         onSubmit={handleSubmit}
         className="flex flex-col gap-4 text-sm text-right"
       >
-        {/* First Name */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            الاسم الأول
-          </label>
-          <input
-            type="text"
-            name="givenName"
-            placeholder="أضف الاسم الأول"
-            value={formData.givenName}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Last Name */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            الاسم الأخير
-          </label>
-          <input
-            type="text"
-            name="surName"
-            placeholder="أضف الاسم الأخير"
-            value={formData.surName}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Country (with ISO code values) */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            الدولة
-          </label>
-          <select
-            name="country"
-            value={formData.country}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 appearance-none"
-          >
-            <option value="JO">الأردن</option>
-            <option value="SA">السعودية</option>
-            <option value="EG">مصر</option>
-            <option value="AE">الإمارات</option>
-          </select>
-        </div>
-
-        {/* City */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            المدينة
-          </label>
-          <input
-            type="text"
-            name="city"
-            placeholder="أضف المدينة"
-            value={formData.city}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Street */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            اسم الشارع
-          </label>
-          <input
-            type="text"
-            name="street"
-            placeholder="أضف العنوان بالتفصيل"
-            value={formData.street}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* State */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            المنطقة/الولاية
-          </label>
-          <input
-            type="text"
-            name="state"
-            placeholder="أضف المنطقة"
-            value={formData.state}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
-
-        {/* Postal Code */}
-        <div>
-          <label className="block mb-1 text-[#1C1C1C] font-medium">
-            الرمز البريدي
-          </label>
-          <input
-            type="text"
-            name="postalCode"
-            placeholder="أضف الرمز للمنطقة"
-            value={formData.postalCode}
-            onChange={handleChange}
-            className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-        </div>
+        <InputField
+          name="givenName"
+          label="الاسم الأول"
+          value={formData.givenName}
+          onChange={handleChange}
+        />
+        <InputField
+          name="surName"
+          label="الاسم الأخير"
+          value={formData.surName}
+          onChange={handleChange}
+        />
+        <SelectField
+          name="country"
+          label="الدولة"
+          value={formData.country}
+          onChange={handleChange}
+        />
+        <InputField
+          name="city"
+          label="المدينة"
+          value={formData.city}
+          onChange={handleChange}
+        />
+        <InputField
+          name="street"
+          label="اسم الشارع"
+          value={formData.street}
+          onChange={handleChange}
+        />
+        <InputField
+          name="state"
+          label="المنطقة / الولاية"
+          value={formData.state}
+          onChange={handleChange}
+        />
+        <InputField
+          name="postalCode"
+          label="الرمز البريدي"
+          value={formData.postalCode}
+          onChange={handleChange}
+        />
 
         <button
           type="submit"
-          className="bg-[#0798F1] hover:bg-[#007dd1] text-white text-sm font-medium px-6 py-2 rounded-[8px] self-end transition-colors"
+          disabled={!tokenReady}
+          className={`bg-[#0798F1] hover:bg-[#007dd1] text-white text-sm font-medium px-6 py-2 rounded-[8px] self-end ${
+            !tokenReady ? "opacity-50 cursor-not-allowed" : ""
+          }`}
         >
           حفظ
         </button>
 
         {statusMessage && (
-          <p className="text-sm mt-2 text-right text-[#DC2626]">
+          <p className="text-sm mt-2 text-right text-[#1C1C1C]">
             {statusMessage}
           </p>
         )}
@@ -189,5 +149,38 @@ const NewAddressForm = () => {
     </div>
   );
 };
+
+// ✅ Reusable Input Component
+const InputField = ({ name, label, value, onChange }) => (
+  <div>
+    <label className="block mb-1 text-[#1C1C1C] font-medium">{label}</label>
+    <input
+      type="text"
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={`أضف ${label}`}
+      className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white placeholder:text-gray-400"
+    />
+  </div>
+);
+
+// ✅ Country Selector
+const SelectField = ({ name, label, value, onChange }) => (
+  <div>
+    <label className="block mb-1 text-[#1C1C1C] font-medium">{label}</label>
+    <select
+      name={name}
+      value={value}
+      onChange={onChange}
+      className="w-full border border-[#D8D8D8] rounded-[8px] p-3 bg-white"
+    >
+      <option value="JO">الأردن</option>
+      <option value="SA">السعودية</option>
+      <option value="EG">مصر</option>
+      <option value="AE">الإمارات</option>
+    </select>
+  </div>
+);
 
 export default NewAddressForm;

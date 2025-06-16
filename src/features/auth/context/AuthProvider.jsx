@@ -15,14 +15,14 @@ export const AuthProvider = ({ children, config }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(getToken());
   const [refreshToken, setRefreshTokenState] = useState(getRefreshToken());
-
+  const [tokenReady, setTokenReady] = useState(!!getToken()); // ✅ New flag
   const [globalError, setGlobalError] = useState(null);
 
   const lastTokenRef = useRef(token);
   const lastRefreshTokenRef = useRef(refreshToken);
 
   const isInitialRefreshDoneRef = useRef(false);
-  const isRefreshingRef = useRef(false); // Prevent overlapping refreshes
+  const isRefreshingRef = useRef(false);
 
   const login = async (credentials) => {
     const data = await loginApi(credentials, config.apiUrl);
@@ -32,6 +32,7 @@ export const AuthProvider = ({ children, config }) => {
 
     setToken(data.token);
     setRefreshTokenState(data.refreshToken);
+    setTokenReady(true); // ✅ Ready after login
 
     lastTokenRef.current = data.token;
     lastRefreshTokenRef.current = data.refreshToken;
@@ -42,7 +43,7 @@ export const AuthProvider = ({ children, config }) => {
       name: data.arabicName || data.englishName,
     });
 
-    setGlobalError(null); // clear any previous global error
+    setGlobalError(null);
   };
 
   const logout = () => {
@@ -50,15 +51,19 @@ export const AuthProvider = ({ children, config }) => {
     clearRefreshToken();
     setToken(null);
     setRefreshTokenState(null);
+    setTokenReady(false); // ✅ Reset on logout
+
     lastTokenRef.current = null;
     lastRefreshTokenRef.current = null;
+
     setUser(null);
     isInitialRefreshDoneRef.current = false;
     isRefreshingRef.current = false;
+
     setGlobalError("❌ جلسة العمل انتهت. الرجاء تسجيل الدخول من جديد.");
   };
 
-  // ✅ Refresh token on first page load (safe)
+  // Refresh token on first load
   useEffect(() => {
     const tryRefreshToken = async () => {
       if (!isInitialRefreshDoneRef.current && !getToken() && refreshToken) {
@@ -67,14 +72,12 @@ export const AuthProvider = ({ children, config }) => {
 
           const data = await refreshTokenApi(refreshToken, config.apiUrl);
 
-          // Update token
           if (data.accessToken && data.accessToken !== lastTokenRef.current) {
             saveToken(data.accessToken);
             setToken(data.accessToken);
             lastTokenRef.current = data.accessToken;
           }
 
-          // Update refreshToken ONLY if returned by backend
           if (
             data.refreshToken &&
             data.refreshToken !== lastRefreshTokenRef.current
@@ -84,10 +87,10 @@ export const AuthProvider = ({ children, config }) => {
             lastRefreshTokenRef.current = data.refreshToken;
           }
 
-          console.log("Token refreshed!");
-
+          setTokenReady(true); // ✅ Ready after refresh
           isInitialRefreshDoneRef.current = true;
           isRefreshingRef.current = false;
+          console.log("Token refreshed!");
         } catch (err) {
           console.error("Failed to refresh token:", err);
           logout();
@@ -98,7 +101,7 @@ export const AuthProvider = ({ children, config }) => {
     tryRefreshToken();
   }, [refreshToken, config.apiUrl]);
 
-  // ✅ Auto refresh every 1 minute (safe version)
+  // Auto-refresh every 1 min
   useEffect(() => {
     let intervalId;
 
@@ -116,14 +119,12 @@ export const AuthProvider = ({ children, config }) => {
 
           const data = await refreshTokenApi(refreshToken, config.apiUrl);
 
-          // Update token
           if (data.accessToken && data.accessToken !== lastTokenRef.current) {
             saveToken(data.accessToken);
             setToken(data.accessToken);
             lastTokenRef.current = data.accessToken;
           }
 
-          // Update refreshToken ONLY if returned by backend
           if (
             data.refreshToken &&
             data.refreshToken !== lastRefreshTokenRef.current
@@ -133,9 +134,9 @@ export const AuthProvider = ({ children, config }) => {
             lastRefreshTokenRef.current = data.refreshToken;
           }
 
+          setTokenReady(true); // ✅ Mark ready after refresh
           console.log("Token auto-refreshed!");
 
-          // Optional: if backend sends empty refreshToken → logout
           if (data.refreshToken === "") {
             console.warn("Refresh token is empty → logging out.");
             logout();
@@ -146,7 +147,7 @@ export const AuthProvider = ({ children, config }) => {
           console.error("Auto refresh failed:", err);
           logout();
         }
-      }, 1 * 60 * 1000); // Refresh every 1 minute
+      }, 1 * 60 * 1000);
     }
 
     return () => {
@@ -162,6 +163,7 @@ export const AuthProvider = ({ children, config }) => {
       value={{
         user,
         token,
+        tokenReady, // ✅ include in context
         refreshToken,
         login,
         logout,
