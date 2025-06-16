@@ -1,4 +1,6 @@
 import React from "react";
+import trashIcon from "../../assets/icons/trash.png";
+import penIcon from "../../assets/icons/pen.png";
 
 const SavedAddresses = () => {
   return (
@@ -14,13 +16,31 @@ const SavedAddresses = () => {
         {[0, 1].map((i) => (
           <div
             key={i}
-            className={`flex items-start gap-4 rounded-[8px] p-4 border text-sm transition
+            className={`relative flex items-start gap-4 rounded-[8px] p-4 border text-sm transition
               ${
                 i === 0
                   ? "bg-[#F3FAFE] border-[#ADE4FF]"
                   : "bg-white border-[#D8D8D8]"
               }`}
           >
+            {/* Action Icons (Trash & Edit) */}
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button className="w-6 h-6 p-[2px] bg-white rounded-md shadow-sm hover:opacity-80 transition">
+                <img
+                  src={trashIcon}
+                  alt="Delete"
+                  className="w-full h-full object-contain"
+                />
+              </button>
+              <button className="w-6 h-6 p-[2px] bg-white rounded-md shadow-sm hover:opacity-80 transition">
+                <img
+                  src={penIcon}
+                  alt="Edit"
+                  className="w-full h-full object-contain"
+                />
+              </button>
+            </div>
+
             <div className="mt-1 ml-2">
               {i === 0 ? (
                 <div className="w-6 h-6 rounded-full bg-[#0099FF] flex items-center justify-center">
